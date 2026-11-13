@@ -1,0 +1,174 @@
+import pandas as pd
+from pathlib import Path
+import joblib
+
+from xgboost import XGBClassifier
+
+from sklearn.metrics import (
+    accuracy_score,
+    precision_score,
+    recall_score,
+    f1_score,
+    roc_auc_score,
+    confusion_matrix,
+    classification_report
+)
+
+
+# ============================================================
+# Load Data
+# ============================================================
+
+def load_data():
+
+    results_path = Path(__file__).resolve().parent.parent / "results"
+
+    X_train = pd.read_csv(results_path / "cleveland_encoded_train.csv")
+    X_test = pd.read_csv(results_path / "cleveland_encoded_test.csv")
+
+    y_train = pd.read_csv(results_path / "cleveland_y_train.csv").squeeze()
+    y_test = pd.read_csv(results_path / "cleveland_y_test.csv").squeeze()
+
+    return X_train, X_test, y_train, y_test
+
+
+# ============================================================
+# Train XGBoost
+# ============================================================
+
+def train_xgboost(X_train, y_train):
+
+    model = XGBClassifier(
+
+        n_estimators=100,
+
+        learning_rate=0.1,
+
+        max_depth=4,
+
+        random_state=42,
+
+        eval_metric="logloss"
+
+    )
+
+    model.fit(X_train, y_train)
+
+    return model
+
+
+# ============================================================
+# Evaluate
+# ============================================================
+
+def evaluate_model(model, X_test, y_test):
+
+    y_pred = model.predict(X_test)
+
+    y_prob = model.predict_proba(X_test)[:,1]
+
+    print("\n"+"="*60)
+    print("XGBOOST RESULTS")
+    print("="*60)
+
+    print(f"Accuracy  : {accuracy_score(y_test,y_pred):.4f}")
+    print(f"Precision : {precision_score(y_test,y_pred):.4f}")
+    print(f"Recall    : {recall_score(y_test,y_pred):.4f}")
+    print(f"F1-score  : {f1_score(y_test,y_pred):.4f}")
+    print(f"ROC-AUC   : {roc_auc_score(y_test,y_prob):.4f}")
+
+    print("\nConfusion Matrix")
+
+    print(confusion_matrix(y_test,y_pred))
+
+    print("\nClassification Report")
+
+    print(classification_report(y_test,y_pred))
+
+    return y_pred
+
+
+# ============================================================
+# Save Model
+# ============================================================
+
+def save_model(model):
+
+    model_path = Path(__file__).resolve().parent.parent / "models"
+
+    model_path.mkdir(exist_ok=True)
+
+    joblib.dump(
+
+        model,
+
+        model_path/"xgboost.pkl"
+
+    )
+
+    print("\nModel Saved Successfully.")
+
+
+# ============================================================
+# Save Predictions
+# ============================================================
+
+def save_predictions(y_pred):
+
+    results_path = Path(__file__).resolve().parent.parent/"results"
+
+    pd.DataFrame(
+
+        y_pred,
+
+        columns=["Predicted"]
+
+    ).to_csv(
+
+        results_path/"xgb_predictions.csv",
+
+        index=False
+
+    )
+
+    print("Predictions Saved Successfully.")
+
+
+# ============================================================
+# Main
+# ============================================================
+
+def main():
+
+    print("="*70)
+    print("XGBOOST CLASSIFIER")
+    print("="*70)
+
+    X_train,X_test,y_train,y_test=load_data()
+
+    model=train_xgboost(X_train,y_train)
+
+    y_pred=evaluate_model(
+
+        model,
+
+        X_test,
+
+        y_test
+
+    )
+
+    save_model(model)
+
+    save_predictions(y_pred)
+
+    print("\nXGBoost Completed Successfully.")
+
+
+# ============================================================
+# Run
+# ============================================================
+
+if __name__=="__main__":
+
+    main()
